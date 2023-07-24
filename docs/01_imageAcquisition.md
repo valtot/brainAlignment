@@ -67,6 +67,4 @@ If the image is a **multichannel** image, export an RGB version, as long as each
 
 [next ➡](02_filesPreparation.md)
 
----
 
-*Leonardo Lupori* - 2022

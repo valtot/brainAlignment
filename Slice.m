@@ -186,7 +186,7 @@ classdef Slice
 
         end
 
-        function f = show(self, opts)
+        function [f, rescaled ]= show(self, opts)
             % f = sliceShow(opts)
             %
             % OPTIONS
@@ -213,6 +213,7 @@ classdef Slice
                 opts.dots {islogical} = false;
                 opts.borders {islogical,isscalar} = false;
                 opts.volume = [];
+                
             end
 
             blankImg = zeros(size(self.thumbnail,[1,2]),'uint8');
@@ -253,14 +254,16 @@ classdef Slice
                 if length(opts.dots) > length(self.dots)
                     error('This slice only has %u cell counts. You requested %u',length(self.dots),length(opts.dots))
                 end
-                colors = cool(sum(opts.dots));
+                colors = autumn(length(opts.dots));
                 for i = 1:length(opts.dots)
                     if opts.dots(i)
                         tab = self.dots{i};
                         if isempty(tab)     % If there are no cells in this channel
-                            cellLabels(i) = plot(0, 0,...
+                            cellLabels(i) = plot(0,0,...
                                 'LineStyle','none','Marker','none',...
                                 'DisplayName',self.channelNames{i});
+
+                            fprintf('requested channel %d noy available, no correspondent dot files!\n', i)
                         else
                         cellLabels(i) = plot(tab.x * self.resizeFactor, tab.y * self.resizeFactor,...
                             'LineStyle','none','Marker','.',...
@@ -268,6 +271,10 @@ classdef Slice
                             'DisplayName',self.channelNames{i},...
                             'MarkerSize',13);
                         end
+                    else
+                        cellLabels(i) = plot(0,0,...
+                                'LineStyle','none','Marker','none',...
+                                'DisplayName',self.channelNames{i});
                     end
                 end
                 legend(cellLabels,'Location','best')
@@ -389,9 +396,17 @@ classdef Slice
             fprintf(' done.\n')
         end
           
-        function T = quantifyDots(self, annotationVolume, channelNumber, rfModelPath)
+        function T = quantifyDots(self, annotationVolume, channelNumber, intensityMethod, cellSize, cellRadius, rfModelPath)
             % T = quantifyCells(annotationVolume, channelNumber)
-
+            arguments 
+                self
+                annotationVolume double
+                channelNumber (1,1) {mustBeInteger}
+                intensityMethod  {mustBeText,mustBeMember(intensityMethod,{'randomForest','unsupervised','none'}) } = 'randomForest';
+                cellSize (1,1) {mustBeInteger} = 80;
+                cellRadius (1,1) {mustBeInteger, mustBeLessThan(cellRadius, cellSize)} = 20;
+                rfModelPath {mustBeText} ='';
+            end
             % Load the correct HI-RES image
             filt = sprintf('-C%u',channelNumber);
             index = contains(self.hiResFilenames,filt);
@@ -465,17 +480,37 @@ classdef Slice
                 newY = y - D(y,x,2);
                 coordCcf = [newX/size(raw,2), newY/size(raw,1), 1] * tm;
                 
-                % RandomForest Classifier
-                subImg = self.extractSubImage(raw, [x,y], 80, 1);
-                bw = RF.predict(subImg);
-                bw = bwareaopen(bw,10);
+                switch intensityMethod
+                    case 'randomForest'
+                        % RandomForest Classifier
+                        subImg = self.extractSubImage(raw, [x,y], cellSize, 1);
+                        bw = RF.predict(subImg);
+                        bw = bwareaopen(bw,10);
+        
+        
+                        fluoMean = mean(subImg(bw),'all');
+                        fluoMedian = median(double(subImg(bw)),'all');
+                        area = sum(bw,'all');
+                    case 'unsupervised'
 
+                        % Center of the cell
+                        subImg = self.extractSubImage(raw, [x,y], cellSize, 1);
+                        center = uint8(size(subImg)/2);
+                        bw = zeros(size(subImg), 'logical');
+                        bw(center(1), center(2)) = 1;
+                        % Define structuring element for erosion/dilation
+                        se = strel('disk', cellRadius); % Create a disk-shaped structuring element
+                        % Perform dilation (inverse of erosion)
+                        bw = imdilate(bw, se);
+                        fluoMean = mean(subImg(bw),'all');
+                        fluoMedian = median(double(subImg(bw)),'all');
+                        area = sum(bw,'all');
 
-                fluoMean = mean(subImg(bw),'all');
-                fluoMedian = median(double(subImg(bw)),'all');
-                area = sum(bw,'all');
-
-
+                    case 'none'
+                        fluoMean = nan;
+                        fluoMedian = nan;
+                        area = nan;
+                end
 
                 % Fill the results for this dot
                 T(count).cellID = dotID;
@@ -509,6 +544,7 @@ classdef Slice
             % Convert to table for the output
             T = struct2table(T);
         end
+
 
         function T = annotatedDotsTable(self, annotationVolume, channelNumber)
             

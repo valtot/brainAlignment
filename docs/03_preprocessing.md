@@ -116,6 +116,4 @@ Download and install the required external software from these sources:
 
 ### Create displacement fields
 
----
 
-*Leonardo Lupori* - 2022

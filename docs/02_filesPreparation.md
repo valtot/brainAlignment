@@ -204,6 +204,4 @@ In the last cell the script will create all the appropriate folder structure for
 
 [next ➡](03_preprocessing.md)
 
----
 
-*Leonardo Lupori* - 2022
