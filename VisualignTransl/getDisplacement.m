@@ -27,19 +27,19 @@ for i = 1:length(indexes)
     toReject = uv1(1)<0 || uv1(1)>1 || uv1(2)<0 || uv1(2)>1 || uv1(1)+uv1(2)>1;
     if toReject
         validTriangles(indexes(i)) = false;
-        tranformedCoord = nan;
+        transformedCoord = nan;
     else
         A = triangleList(indexes(i)).A;
         B = triangleList(indexes(i)).B;
         C = triangleList(indexes(i)).C;
-        tranformedCoord = [A(1)+(B(1)-A(1))*uv1(1)+(C(1)-A(1))*uv1(2),...
+        transformedCoord = [A(1)+(B(1)-A(1))*uv1(1)+(C(1)-A(1))*uv1(2),...
             A(2)+(B(2)-A(2))*uv1(1)+(C(2)-A(2))*uv1(2)];
         break
     end
 end
 
-dx = tranformedCoord(1) - xq;
-dy = tranformedCoord(2) - yq;
+dx = transformedCoord(1) - xq;
+dy = transformedCoord(2) - yq;
 
 
 
